@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "CMIZY8wHjJ0=",
+  "success": true,
+  "projectFilePath": "E:\\Projects\\SnapGo\\tools\\ConvertIcon\\ConvertIcon.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\CYK\\.nuget\\packages\\microsoft.win32.systemevents\\8.0.0\\microsoft.win32.systemevents.8.0.0.nupkg.sha512",
+    "C:\\Users\\CYK\\.nuget\\packages\\system.drawing.common\\8.0.13\\system.drawing.common.8.0.13.nupkg.sha512"
+  ],
+  "logs": []
+}

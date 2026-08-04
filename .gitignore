@@ -1,0 +1,65 @@
+# ============================================================
+# SnapGo .gitignore
+# ============================================================
+
+# ---- .NET ----
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]uild/
+*.nupkg
+*.snupkg
+TestResults/
+*.dotCover
+packages/
+*.orig
+*.crssscc
+*.vssscc
+_UpgradeReport_Files/
+Backup*/
+UpgradeLog*.XML
+UpgradeLog*.htm
+*.dbmdl
+*.jfm
+*.tmp
+!tools/**/bin/
+!tools/**/obj/
+
+# ---- VS / VS Code / Rider ----
+.vs/
+.vscode/
+.idea/
+*.swp
+*.*~
+*.DotSettings.user
+
+# ---- Logs ----
+logs/
+*.log
+
+# ---- App Runtime ----
+save/
+*.db
+*-journal
+
+# ---- Docker ----
+docker/models/
+
+# ---- OS Files ----
+Thumbs.db
+Desktop.ini
+.DS_Store
+$RECYCLE.BIN/
+
+# ---- Archive ----
+*.zip
+*.7z
+*.rar

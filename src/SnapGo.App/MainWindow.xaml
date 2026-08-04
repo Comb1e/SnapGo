@@ -1,0 +1,34 @@
+<Window x:Class="SnapGo.App.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:tb="clr-namespace:H.NotifyIcon;assembly=H.NotifyIcon.Wpf"
+        Title="SnapGo" Height="600" Width="900"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
+        Closing="Window_Closing">
+    <Grid>
+        <!-- TaskbarIcon defined in XAML for proper visual tree integration -->
+        <tb:TaskbarIcon x:Name="TrayIcon"
+                        ToolTipText="SnapGo"
+                        TrayLeftMouseDown="TrayIcon_LeftClick"
+                        Visibility="Visible">
+            <tb:TaskbarIcon.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Settings" Click="TraySettings_Click" />
+                    <Separator />
+                    <MenuItem Header="Exit" Click="TrayExit_Click" />
+                </ContextMenu>
+            </tb:TaskbarIcon.ContextMenu>
+        </tb:TaskbarIcon>
+
+        <TextBlock Text="SnapGo is running in the system tray."
+                   FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Foreground="Gray" />
+
+        <TextBlock x:Name="StatusText"
+                   Text="Press Ctrl+Shift+S to capture"
+                   FontSize="12" HorizontalAlignment="Center"
+                   VerticalAlignment="Center" Margin="0,40,0,0"
+                   Foreground="DimGray" />
+    </Grid>
+</Window>

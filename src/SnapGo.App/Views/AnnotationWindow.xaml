@@ -1,0 +1,51 @@
+<Window x:Class="SnapGo.App.Views.AnnotationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Annotate Screenshot" Height="500" Width="800"
+        WindowStartupLocation="CenterOwner"
+        Topmost="True"
+        KeyDown="Window_KeyDown">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <Border Grid.Row="0" Background="#F5F5F5" BorderBrush="#D0D0D0" BorderThickness="0,0,0,1"
+                Padding="6">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="BtnRect" Content="⬜ Rect" Width="70" Height="28"
+                        Margin="2" Click="BtnRect_Click" />
+                <Button x:Name="BtnArrow" Content="➡️ Arrow" Width="70" Height="28"
+                        Margin="2" Click="BtnArrow_Click" />
+                <Button x:Name="BtnText" Content="🔤 Text" Width="70" Height="28"
+                        Margin="2" Click="BtnText_Click" />
+                <Button x:Name="BtnFreehand" Content="✏️ Pen" Width="70" Height="28"
+                        Margin="2" Click="BtnFreehand_Click" />
+                <Separator Width="16" />
+                <Button x:Name="BtnColor" Content="🎨 Color" Width="70" Height="28"
+                        Margin="2" Click="BtnColor_Click" />
+                <Separator Width="16" />
+                <Button x:Name="BtnUndo" Content="↩ Undo" Width="60" Height="28"
+                        Margin="2" Click="BtnUndo_Click" />
+                <Button x:Name="BtnRedo" Content="↪ Redo" Width="60" Height="28"
+                        Margin="2" Click="BtnRedo_Click" />
+                <Separator Width="16" />
+                <Button x:Name="BtnDone" Content="✅ Done" Width="70" Height="28"
+                        Margin="2" Click="BtnDone_Click" Background="#E8F5E9" />
+                <Button x:Name="BtnCancel" Content="Cancel" Width="60" Height="28"
+                        Margin="2" Click="BtnCancel_Click" IsCancel="True" />
+            </StackPanel>
+        </Border>
+
+        <!-- Canvas area -->
+        <Grid Grid.Row="1" Background="Gray">
+            <Image x:Name="ScreenshotImage" Stretch="Uniform" />
+            <Canvas x:Name="AnnotationCanvas" Background="Transparent"
+                    MouseLeftButtonDown="Canvas_MouseLeftButtonDown"
+                    MouseMove="Canvas_MouseMove"
+                    MouseLeftButtonUp="Canvas_MouseLeftButtonUp" />
+        </Grid>
+    </Grid>
+</Window>

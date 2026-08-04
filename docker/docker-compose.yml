@@ -1,0 +1,41 @@
+# SnapGo — PaddleOCR-VL Docker Service
+#
+# Prerequisites:
+#   - Docker Desktop with WSL2 backend
+#   - NVIDIA Container Toolkit (for GPU acceleration)
+#
+# Usage:
+#   docker compose up -d
+#
+# The service will be available at http://localhost:8000
+# Health check: GET http://localhost:8000/health
+# OCR endpoint: POST http://localhost:8000/layout-parsing
+
+services:
+  snapgo-ocr:
+    image: ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddleocr-vl:latest-nvidia-gpu-offline
+    container_name: snapgo-ocr
+    runtime: nvidia
+    ports:
+      - "8000:8080"
+    volumes:
+      - ./models:/models:ro
+      - ./pipeline_config.yaml:/home/paddleocr/pipeline_config_native.yaml:ro
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    shm_size: "2gb"
+    command:
+      - "paddlex"
+      - "--serve"
+      - "--pipeline"
+      - "/home/paddleocr/pipeline_config_native.yaml"
+      - "--port"
+      - "8080"
