@@ -234,7 +234,7 @@ public partial class MainWindow : Window
         var ocrService = app.Services.GetRequiredService<IOcrService>();
         var resultPanel = app.Services.GetRequiredService<ResultPanel>();
         resultPanel.Owner = this;
-        resultPanel.SetLoading("Starting Docker OCR service...");
+        resultPanel.SetLoading("Loading OCR model...");
         resultPanel.Show();
 
         try
@@ -243,12 +243,7 @@ public partial class MainWindow : Window
             resultPanel.SetLoading("Recognizing text...");
             var result = await ocrService.RecognizeAsync(image, cts.Token);
             resultPanel.SetResult(result);
-            _viewModel.StatusMessage = $"OCR complete in {result.ElapsedMs / 1000.0:F1}s";
-        }
-        catch (DockerNotSetupException ex)
-        {
-            resultPanel.SetError(ex.Message);
-            _viewModel.StatusMessage = "OCR failed: Docker not set up";
+            _viewModel.StatusMessage = $"OCR complete in {result.ElapsedMs / 1000.0:F1}s ({result.ModelUsed})";
         }
         catch (OcrException ex)
         {

@@ -7,12 +7,11 @@ Windows 桌面截图与 OCR 文字提取工具。框选截图 → 保存 / 标�
 | 功能 | 说明 |
 |------|------|
 | 🔍 **框选截图** | 全局热键 `Ctrl+Shift+S` 唤起全屏遮罩，拖拽框选区域 |
-| 📝 **OCR 文字提取** | 基于本地 PaddleOCR-VL 视觉语言模型，支持中英文及 109 种语言 |
+| 📝 **OCR 文字提取** | 本机 PP-OCRv5，识别截图中的中文和英文，无需 Docker |
 | ✏️ **截图标注** | 矩形 / 箭头 / 文字 / 自由画笔，可撤销重做 |
 | 📋 **剪贴板** | 一键复制截图或识别文字到系统剪贴板 |
 | 📂 **历史记录** | SQLite 持久化存储，缩略图浏览 + 全文搜索，自动清理 |
 | ⚙️ **系统托盘** | 最小化到系统托盘，右键菜单快速操作，支持开机自启 |
-| 🐳 **按需启动** | Docker 仅在首次 OCR 请求时启动，纯截图操作不触发 |
 
 ## 系统要求
 
@@ -20,8 +19,6 @@ Windows 桌面截图与 OCR 文字提取工具。框选截图 → 保存 / 标�
 |------|------|
 | Windows | 10 / 11 (x64) |
 | .NET Desktop Runtime | 8.0+ |
-| Docker Desktop | 最新稳定版 |
-| GPU (必需) | NVIDIA 显卡 + Docker GPU 支持 (本地推理) |
 
 ## 安装
 
@@ -35,23 +32,7 @@ dotnet build src/SnapGo.App -c Release
 
 输出目录：`src/SnapGo.App/bin/Release/net8.0-windows/`
 
-### 2. 部署 PaddleOCR-VL 服务
-
-```powershell
-cd docker
-docker compose up -d
-
-# 验证服务可用
-curl http://localhost:8000/health
-```
-
-如需运行诊断，执行：
-
-```powershell
-bash test/test_ocr.sh
-```
-
-### 3. 启动 SnapGo
+### 2. 启动 SnapGo
 
 直接运行 `SnapGo.exe`，程序将最小化到系统托盘。
 
@@ -78,8 +59,9 @@ Ctrl+Shift+S → 框选区域 → 松手保留选区 → 调整位置/大小 →
 ### OCR 文字提取
 
 1. 截图后在工具栏点击 **OCR** 按钮
-2. 首次使用将自动启动 Docker 容器（约 3-8 秒）
-3. 识别结果展示在结果面板中，可复制或导出为文本
+2. 首次识别会加载本机模型；之后的识别复用已加载的模型
+3. 有可用的 DirectX 12 显卡时走 DirectML，否则使用 CPU
+4. 识别结果展示在结果面板中，可复制或导出为文本
 
 ### 截图标注
 
@@ -130,8 +112,6 @@ Ctrl+Shift+S → 框选区域 → 松手保留选区 → 调整位置/大小 →
 |------|------|--------|
 | 开机自启 | 随 Windows 启动 | 关闭 |
 | 最小化启动 | 启动时仅显示托盘图标 | 开启 |
-| Docker 模式 | AlwaysOn / OnDemand / Smart | AlwaysOn |
-| 空闲超时 | Smart 模式下自动停止 Docker | 30 分钟 |
 | 保存路径 | 截图默认保存文件夹 | 空（打开系统默认位置） |
 
 ### 配置文件
@@ -141,16 +121,9 @@ Ctrl+Shift+S → 框选区域 → 松手保留选区 → 调整位置/大小 →
 ```jsonc
 {
   "App": {
-    "Docker": {
-      "ContainerName": "snapgo-ocr",
-      "BaseUrl": "http://localhost:8000",
-      "Mode": "AlwaysOn",       // AlwaysOn | OnDemand | Smart
-      "IdleTimeoutMinutes": 30
-    },
     "Ocr": {
       "TimeoutSeconds": 30,
-      "MaxRetries": 3,
-      "Prompt": "请识别图片中的所有文字，保持原有排版结构，不要添加额外解释。"
+      "Provider": "Auto"        // Auto | DirectML | CPU
     },
     "History": {
       "MaxRecords": 500,
@@ -159,14 +132,6 @@ Ctrl+Shift+S → 框选区域 → 松手保留选区 → 调整位置/大小 →
   }
 }
 ```
-
-### Docker 模式说明
-
-| 模式 | 行为 |
-|------|------|
-| **AlwaysOn** | 程序启动时启动 Docker，退出时停止 |
-| **OnDemand** | 首次 OCR 请求时启动，之后保持运行 |
-| **Smart** | 首次 OCR 请求时启动，空闲 N 分钟后自动停止 |
 
 ## 项目结构
 
@@ -190,8 +155,7 @@ SnapGo/
 │   │   └── SettingsWindow        # 设置窗口
 │   ├── Services/                 # 业务服务
 │   │   ├── ScreenshotService     # 截图捕获（CopyFromScreen）
-│   │   ├── OcrService            # PaddleOCR HTTP 调用 + 重试
-│   │   ├── DockerService         # Docker 容器生命周期管理
+│   │   ├── OcrService            # 本机 PP-OCRv5（DirectML / CPU）
 │   │   ├── ClipboardService      # 剪贴板操作
 │   │   ├── HistoryService        # SQLite 历史 CRUD
 │   │   └── AnnotationService     # 标注撤销/重做栈
@@ -202,11 +166,6 @@ SnapGo/
 │   │   └── ImageHelper.cs        # 位图转换 / Base64
 │   ├── Data/                     # 数据库上下文
 │   └── icon/                     # 应用图标
-├── docker/                       # Docker Compose + Pipeline 配置
-│   ├── docker-compose.yml        #   OCR 服务编排
-│   └── pipeline_config.yaml      #   PaddleX native 推理配置
-├── test/                         # 测试 & 诊断脚本
-│   └── test_ocr.sh               #   OCR 5 层诊断脚本
 └── tools/ConvertIcon/            # PNG → ICO 转换工具
 ```
 
@@ -218,8 +177,7 @@ SnapGo/
 | MVVM | CommunityToolkit.Mvvm 8.4 |
 | DI 容器 | Microsoft.Extensions.Hosting (Generic Host) |
 | 数据库 | SQLite via Microsoft.Data.Sqlite (ADO.NET) |
-| OCR 引擎 | PaddleOCR-VL 1.6 via PaddleX (native GPU inference) |
-| Docker 管理 | `docker` CLI (Process.Start) |
+| OCR 引擎 | PP-OCRv5 mobile，ONNX Runtime DirectML / CPU |
 | 日志 | Serilog |
 | 系统托盘 | H.NotifyIcon.Wpf |
 | 全局热键 | P/Invoke RegisterHotKey (user32.dll) |

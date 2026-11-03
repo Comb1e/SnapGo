@@ -27,7 +27,7 @@ powershell -Command "Stop-Process -Name SnapGo -Force -ErrorAction SilentlyConti
 
 ## Architecture
 
-SnapGo is a **single-instance WPF tray app** for full-screen box-select screenshots with local Docker-based OCR.
+SnapGo is a **single-instance WPF tray app** for full-screen box-select screenshots with in-process PP-OCRv5 OCR.
 
 ### Screenshot Flow (the critical path)
 
@@ -53,7 +53,7 @@ Key architectural decisions:
 ### DI Container (Generic Host)
 
 `App.xaml.cs` wires a `Microsoft.Extensions.Hosting` generic host. Services registered as:
-- **Singleton**: `IScreenshotService`, `IOcrService`, `IDockerService`, `IClipboardService`, `IHistoryService`, `IAnnotationService`, `HttpClient`
+- **Singleton**: `IScreenshotService`, `IOcrService`, `IClipboardService`, `IHistoryService`, `IAnnotationService`
 - **Transient**: All ViewModels, all Views (MainWindow, ScreenshotOverlay, FloatingToolbar, ResultPanel, SettingsWindow)
 
 Access services from anywhere: `((App)Application.Current).Services.GetRequiredService<T>()`
@@ -78,17 +78,11 @@ The main window starts with `ShowInTaskbar=False` and `WindowState=Minimized` wh
 
 `tools/ConvertIcon` generates the `.ico` from `SnapGo.png`. Uses **DIB format with AND mask** (not PNG-compressed) because `System.Drawing.Icon` has limited PNG-in-ICO support. `biHeight = 2× image height` (XOR + AND mask). Sizes: 256, 64, 48, 32, 16.
 
-### Docker / OCR
+### OCR
 
-**Two-container architecture:** The PaddleOCR-VL image (`paddleocr-vl:latest-nvidia-gpu-offline`) is a **pipeline orchestrator** — it does layout detection locally, then delegates text recognition to a model backend. The default config uses `vllm-server` backend (requires separate vLLM container), but `docker/pipeline_config.yaml` overrides this to `backend: native` for local GPU inference with no external dependencies.
+`OcrService` runs PP-OCRv5 mobile in-process through RapidOcrNet. Models live in `src/SnapGo.App/ocr-models/` and are copied to `models/` beside the exe. The first OCR call loads the session; later calls reuse it. `Provider=Auto` tries DirectML and falls back to CPU. Screenshot text is upright, so angle classification is not run. Lines are ordered by `OcrReadingOrder` (overlap must be at least half the taller box).
 
-- **Docker Compose** (`docker/docker-compose.yml`): Maps `8000:8080` (PaddleX listens on 8080), mounts `pipeline_config.yaml` with `backend: native`, starts with `paddlex --serve --pipeline /home/paddleocr/pipeline_config_native.yaml --port 8080`.
-- **Health check**: `GET /health` → `{"errorCode":0,"errorMsg":"Healthy"}`
-- **OCR endpoint**: `POST /layout-parsing` → `{file: "<base64>", fileType: 1}` → returns `{result: {layoutParsingResults: [{markdown: {text: "..."}}]}}`
-- **`DockerService`** manages the `snapgo-ocr` container via `Process.Start("docker ...")` CLI. `EnsureRunningAsync()` polls `/health` (500ms interval, 30 retries max). Health check parses `errorCode == 0`.
-- **`OcrService`** sends PaddleX-format requests, parses `layoutParsingResults[].markdown.text` from response. Exponential backoff retry (1s/2s/4s).
-
-**Diagnostic script**: `bash test/test_ocr.sh` — tests container → health → logs → pipeline config → OCR endpoint (5 layers).
+The official DirectML package stops at ONNX Runtime 1.24.4, and newer RapidOcrNet releases require 1.27+. SnapGo pins RapidOcrNet 2.0.0 with `Microsoft.ML.OnnxRuntime.DirectML` 1.24.3 so the GPU provider actually ships. The CPU `Microsoft.ML.OnnxRuntime` package is referenced with `ExcludeAssets=runtime` so its `onnxruntime.dll` does not replace the DirectML build.
 
 ### Configuration
 
@@ -101,3 +95,4 @@ The main window starts with `ShowInTaskbar=False` and `WindowState=Minimized` wh
 - **H.NotifyIcon + hidden parent**: The `TaskbarIcon` must be in the XAML visual tree, not created in code-behind, or it disappears when the parent window is hidden.
 - **`FloatingToolbar.Window_Deactivated`**: Guard with `_closedByAction` flag — otherwise the toolbar closes itself when any child dialog (e.g., SaveFileDialog) takes focus.
 - **Screenshot resolution**: Do not use `WindowState=Maximized` on the transparent overlay. On a 2560×1600 screen that window is 2574×1614 at (-8, -8), and `Stretch=Fill` resamples the capture so it looks softer than the display. Size the overlay to the virtual screen and capture physical pixels (`GetSystemMetrics` under per-monitor DPI), not `SystemParameters` DIPs. Crop with `CopyPixels`, not `RenderTargetBitmap`.
+- **OCR native libraries**: `PublishSingleFile` must not swallow `onnxruntime.dll`, `DirectML.dll`, or SkiaSharp. They are excluded from the bundle and have to sit beside the exe. The angle-classifier ONNX is loaded at init because RapidOcrNet requires the file; `DoAngle=false` is what skips the pass.
