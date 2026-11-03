@@ -36,6 +36,36 @@ public static class ImageHelper
         }
     }
 
+    /// <summary>
+    /// Crop by copying pixels. A RenderTargetBitmap redraw resamples the image and softens it.
+    /// </summary>
+    public static BitmapSource CropPixels(this BitmapSource source, int x, int y, int width, int height)
+    {
+        if (source.PixelWidth <= 0 || source.PixelHeight <= 0)
+            throw new ArgumentOutOfRangeException(nameof(source), "Source bitmap is empty.");
+
+        x = Math.Clamp(x, 0, source.PixelWidth - 1);
+        y = Math.Clamp(y, 0, source.PixelHeight - 1);
+        width = Math.Clamp(width, 1, source.PixelWidth - x);
+        height = Math.Clamp(height, 1, source.PixelHeight - y);
+
+        var cropped = new CroppedBitmap(source, new System.Windows.Int32Rect(x, y, width, height));
+        int bytesPerPixel = Math.Max(1, (cropped.Format.BitsPerPixel + 7) / 8);
+        int stride = (width * bytesPerPixel + 3) & ~3;
+        var pixels = new byte[stride * height];
+        cropped.CopyPixels(pixels, stride, 0);
+
+        var result = BitmapSource.Create(
+            width, height,
+            source.DpiX, source.DpiY,
+            cropped.Format,
+            cropped.Palette,
+            pixels,
+            stride);
+        result.Freeze();
+        return result;
+    }
+
     /// <summary>Encode a BitmapSource to PNG bytes.</summary>
     public static byte[] ToPngBytes(this BitmapSource source)
     {

@@ -33,8 +33,8 @@ SnapGo is a **single-instance WPF tray app** for full-screen box-select screensh
 
 ```
 Ctrl+Shift+S → MainWindow.OnHotkeyPressed()
-  → ScreenshotService.CaptureFullScreenAsync()  (Graphics.CopyFromScreen)
-  → ScreenshotOverlay.ShowDialog()              (full-screen transparent window, drag-to-select)
+  → ScreenshotService.CaptureFullScreenAsync()  (physical pixels via per-monitor DPI + CopyFromScreen)
+  → ScreenshotOverlay.ShowDialog()              (virtual-screen window sized 1:1, drag-to-select)
       → mouse-up: enters Selected state (handles visible, overlay stays open)
       → fires SelectionReady event
   → MainWindow shows FloatingToolbar near selection
@@ -100,3 +100,4 @@ The main window starts with `ShowInTaskbar=False` and `WindowState=Minimized` wh
 - **`Dispatcher.InvokeAsync(async () => ...)`**: The `async` lambda is inferred as `async void`. If any inner `await` yields, the outer `await` completes early. Prefer sync dispatcher calls.
 - **H.NotifyIcon + hidden parent**: The `TaskbarIcon` must be in the XAML visual tree, not created in code-behind, or it disappears when the parent window is hidden.
 - **`FloatingToolbar.Window_Deactivated`**: Guard with `_closedByAction` flag — otherwise the toolbar closes itself when any child dialog (e.g., SaveFileDialog) takes focus.
+- **Screenshot resolution**: Do not use `WindowState=Maximized` on the transparent overlay. On a 2560×1600 screen that window is 2574×1614 at (-8, -8), and `Stretch=Fill` resamples the capture so it looks softer than the display. Size the overlay to the virtual screen and capture physical pixels (`GetSystemMetrics` under per-monitor DPI), not `SystemParameters` DIPs. Crop with `CopyPixels`, not `RenderTargetBitmap`.

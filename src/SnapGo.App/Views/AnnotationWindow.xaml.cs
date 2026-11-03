@@ -314,35 +314,43 @@ public partial class AnnotationWindow : Window
 
     private byte[] ExportImage()
     {
-        var width = (int)ScreenshotImage.ActualWidth;
-        var height = (int)ScreenshotImage.ActualHeight;
-        if (width <= 0 || height <= 0) return [];
+        int pixelW = _screenshot.PixelWidth;
+        int pixelH = _screenshot.PixelHeight;
+        if (pixelW <= 0 || pixelH <= 0) return [];
 
-        var grid = new Grid { Width = width, Height = height };
-        grid.Children.Add(new Image { Source = _screenshot, Stretch = Stretch.Fill, Width = width, Height = height });
+        // The editor shows the bitmap fitted to the window. Export at the bitmap's own pixel size
+        // so the saved image stays as sharp as the screen, not as soft as the fitted preview.
+        var display = ImageDisplayRect();
+        double scaleX = display.Width > 0 ? pixelW / display.Width : 1;
+        double scaleY = display.Height > 0 ? pixelH / display.Height : 1;
+        double strokeScale = (scaleX + scaleY) / 2;
 
-        // Render annotations relative to the image
-        var scaleX = width / AnnotationCanvas.ActualWidth;
-        var scaleY = height / AnnotationCanvas.ActualHeight;
-
-        var canvas = new Canvas();
-        foreach (var a in _annotations)
+        var grid = new Grid
         {
-            var scaled = new Annotation
-            {
-                Type = a.Type, Text = a.Text, FontSize = a.FontSize * scaleY,
-                StrokeColor = a.StrokeColor, StrokeThickness = a.StrokeThickness,
-                X1 = a.X1 * scaleX, Y1 = a.Y1 * scaleY,
-                X2 = a.X2 * scaleX, Y2 = a.Y2 * scaleY,
-                Points = a.Points?.Select(p => new System.Windows.Point(p.X * scaleX, p.Y * scaleY)).ToList()
-            };
-            RenderToCanvas(canvas, scaled);
-        }
+            Width = pixelW,
+            Height = pixelH,
+            SnapsToDevicePixels = true,
+            UseLayoutRounding = true
+        };
+        var image = new Image
+        {
+            Source = _screenshot,
+            Stretch = Stretch.Fill,
+            Width = pixelW,
+            Height = pixelH,
+            SnapsToDevicePixels = true
+        };
+        RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.NearestNeighbor);
+        grid.Children.Add(image);
+
+        var canvas = new Canvas { Width = pixelW, Height = pixelH };
+        foreach (var a in _annotations)
+            RenderToCanvas(canvas, ScaleAnnotation(a, display, scaleX, scaleY, strokeScale));
         grid.Children.Add(canvas);
 
-        var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
-        grid.Measure(new System.Windows.Size(width, height));
-        grid.Arrange(new Rect(0, 0, width, height));
+        var rtb = new RenderTargetBitmap(pixelW, pixelH, 96, 96, PixelFormats.Pbgra32);
+        grid.Measure(new System.Windows.Size(pixelW, pixelH));
+        grid.Arrange(new Rect(0, 0, pixelW, pixelH));
         rtb.Render(grid);
 
         var encoder = new PngBitmapEncoder();
@@ -350,6 +358,42 @@ public partial class AnnotationWindow : Window
         using var ms = new MemoryStream();
         encoder.Save(ms);
         return ms.ToArray();
+    }
+
+    /// <summary>Where Stretch=Uniform draws the bitmap inside the annotation canvas.</summary>
+    private Rect ImageDisplayRect()
+    {
+        double cw = AnnotationCanvas.ActualWidth;
+        double ch = AnnotationCanvas.ActualHeight;
+        double pw = _screenshot.PixelWidth;
+        double ph = _screenshot.PixelHeight;
+        if (cw <= 0 || ch <= 0 || pw <= 0 || ph <= 0)
+            return new Rect(0, 0, Math.Max(cw, 1), Math.Max(ch, 1));
+
+        double fit = Math.Min(cw / pw, ch / ph);
+        double dw = pw * fit;
+        double dh = ph * fit;
+        return new Rect((cw - dw) / 2, (ch - dh) / 2, dw, dh);
+    }
+
+    private static Annotation ScaleAnnotation(Annotation a, Rect display, double scaleX, double scaleY, double strokeScale)
+    {
+        System.Windows.Point Map(double x, double y) => new((x - display.X) * scaleX, (y - display.Y) * scaleY);
+        var p1 = Map(a.X1, a.Y1);
+        var p2 = Map(a.X2, a.Y2);
+        return new Annotation
+        {
+            Type = a.Type,
+            Text = a.Text,
+            FontSize = a.FontSize * scaleY,
+            StrokeColor = a.StrokeColor,
+            StrokeThickness = a.StrokeThickness * strokeScale,
+            X1 = p1.X,
+            Y1 = p1.Y,
+            X2 = p2.X,
+            Y2 = p2.Y,
+            Points = a.Points?.Select(p => Map(p.X, p.Y)).ToList()
+        };
     }
 
     private static void RenderToCanvas(Canvas canvas, Annotation a)
