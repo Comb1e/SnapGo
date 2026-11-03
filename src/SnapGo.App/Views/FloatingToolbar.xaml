@@ -19,7 +19,7 @@
             <Button x:Name="BtnOcr" Content="📝 OCR" Width="80" Height="36"
                     Margin="3" Click="BtnOcr_Click"
                     Background="#FFFFFF" BorderBrush="#D0D0D0"
-                    ToolTip="Extract text using PaddleOCR-VL" />
+                    ToolTip="Extract text on this PC" />
             <Button x:Name="BtnAnnotate" Content="✏️ Annotate" Width="90" Height="36"
                     Margin="3" Click="BtnAnnotate_Click"
                     Background="#FFFFFF" BorderBrush="#D0D0D0"

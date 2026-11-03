@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using SnapGo.App.Helpers;
 using SnapGo.App.Services;
 
 namespace SnapGo.App.Views;
@@ -52,21 +53,50 @@ public partial class ScreenshotOverlay : Window
         Loaded += OnLoaded;
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e) => Activate();
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        FitToVirtualScreen();
+        Activate();
+    }
 
     public void SetSourceImage(BitmapSource image)
     {
         _sourceImage = image;
         ScreenshotImage.Source = image;
+        FitToVirtualScreen();
     }
+
+    /// <summary>
+    /// WindowState=Maximized inflates a borderless layered window by the resize frame
+    /// (2574×1614 on a 2560×1600 screen). Stretch then resamples every pixel.
+    /// Pin the client area to the virtual screen so one bitmap pixel lands on one device pixel.
+    /// </summary>
+    private void FitToVirtualScreen()
+    {
+        WindowState = WindowState.Normal;
+        Left = SystemParameters.VirtualScreenLeft;
+        Top = SystemParameters.VirtualScreenTop;
+        Width = SystemParameters.VirtualScreenWidth;
+        Height = SystemParameters.VirtualScreenHeight;
+    }
+
+    /// <summary>Physical pixels per DIP for the captured bitmap. 1 at 100% scaling.</summary>
+    private double PixelScaleX =>
+        _sourceImage == null || ActualWidth <= 0 ? 1 : _sourceImage.PixelWidth / ActualWidth;
+
+    private double PixelScaleY =>
+        _sourceImage == null || ActualHeight <= 0 ? 1 : _sourceImage.PixelHeight / ActualHeight;
+
+    private PixelRect SelectionPixels => PixelRectMapper.FromDip(
+        _selectionRect.X, _selectionRect.Y, _selectionRect.Width, _selectionRect.Height,
+        PixelScaleX, PixelScaleY,
+        _sourceImage!.PixelWidth, _sourceImage.PixelHeight);
 
     /// <summary>Crop the current selection and return it. Does NOT close the overlay.</summary>
     public BitmapSource CropCurrentSelection()
     {
-        return _screenshotService.CropRegion(
-            _sourceImage!,
-            (int)_selectionRect.X, (int)_selectionRect.Y,
-            (int)_selectionRect.Width, (int)_selectionRect.Height);
+        var px = SelectionPixels;
+        return _screenshotService.CropRegion(_sourceImage!, px.X, px.Y, px.Width, px.Height);
     }
 
     /// <summary>Get the current selection rect in screen coordinates.</summary>
@@ -109,9 +139,10 @@ public partial class ScreenshotOverlay : Window
             Canvas.SetTop(border, r.Y);
             OverlayCanvas.Children.Add(border);
 
+            var px = SelectionPixels;
             var sizeText = new TextBlock
             {
-                Text = $"{r.Width:F0} × {r.Height:F0}",
+                Text = $"{px.Width} × {px.Height}",
                 Foreground = Brushes.White,
                 Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
                 FontSize = 12, Padding = new Thickness(4, 2, 4, 2)
@@ -517,10 +548,8 @@ public partial class ScreenshotOverlay : Window
         _state = OverlayState.Confirmed;
 
         var cropped = CropCurrentSelection();
-        _screenshotService.NotifyScreenshotCaptured(
-            cropped,
-            (int)_selectionRect.X, (int)_selectionRect.Y,
-            (int)_selectionRect.Width, (int)_selectionRect.Height);
+        var px = SelectionPixels;
+        _screenshotService.NotifyScreenshotCaptured(cropped, px.X, px.Y, px.Width, px.Height);
         Close();
     }
 }

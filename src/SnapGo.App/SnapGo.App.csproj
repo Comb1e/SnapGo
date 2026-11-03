@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>SnapGo</AssemblyName>
     <ApplicationIcon>icon\SnapGo.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
@@ -21,6 +21,12 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.13" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.3">
+      <!-- Native is separate from runtime. RapidOcrNet also depends on this package, so the direct reference must drop both or publish copies the CPU onnxruntime.dll beside the DirectML build. -->
+      <ExcludeAssets>runtime;native;build;buildTransitive</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.3" />
+    <PackageReference Include="RapidOcrNet" Version="2.0.0" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.13" />
@@ -35,6 +41,24 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
+    <Content Include="ocr-models\*.onnx;ocr-models\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      <Link>models\%(Filename)%(Extension)</Link>
+    </Content>
   </ItemGroup>
+
+  <!-- ONNX Runtime and Skia look up native DLLs beside the process. ResolvedFileToPublish is filled by ComputeResolvedFilesToPublishList, so this must run before the bundle is built. -->
+  <Target Name="ExcludeOcrNativesFromSingleFile" BeforeTargets="_ComputeFilesToBundle">
+    <ItemGroup>
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
+        Condition="$([System.String]::Copy('%(Filename)').StartsWith('onnxruntime'))
+               or $([System.String]::Copy('%(Filename)').StartsWith('DirectML'))
+               or $([System.String]::Copy('%(Filename)').StartsWith('libSkiaSharp'))
+               or $([System.String]::Copy('%(Filename)').StartsWith('SkiaSharp'))">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
 </Project>

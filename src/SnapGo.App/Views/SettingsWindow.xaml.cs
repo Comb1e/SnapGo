@@ -25,13 +25,6 @@ public partial class SettingsWindow : Window
         ChkAutoStart.IsChecked = AutoStartHelper.IsAutoStartEnabled();
         ChkStartMinimized.IsChecked = _settings.General.StartMinimized;
 
-        // Docker mode
-        var mode = _settings.Docker.Mode;
-        if (mode == "OnDemand") RbOnDemand.IsChecked = true;
-        else if (mode == "Smart") RbSmart.IsChecked = true;
-        else RbAlways.IsChecked = true;
-
-        TxtIdleTimeout.Text = _settings.Docker.IdleTimeoutMinutes.ToString();
         TxtHotkey.Text = $"{_settings.Hotkey.Modifiers}+{_settings.Hotkey.Key}";
         TxtSavePath.Text = _settings.Storage.DefaultSavePath;
     }
@@ -72,8 +65,6 @@ public partial class SettingsWindow : Window
                     {
                         appNode["General"]!["AutoStart"] = autoStart;
                         appNode["General"]!["StartMinimized"] = ChkStartMinimized.IsChecked == true;
-                        appNode["Docker"]!["Mode"] = GetSelectedMode();
-                        appNode["Docker"]!["IdleTimeoutMinutes"] = int.TryParse(TxtIdleTimeout.Text, out var t) ? t : 30;
                         appNode["Storage"]!["DefaultSavePath"] = TxtSavePath.Text;
                     }
 
@@ -85,13 +76,6 @@ public partial class SettingsWindow : Window
 
         DialogResult = true;
         Close();
-    }
-
-    private string GetSelectedMode()
-    {
-        if (RbOnDemand.IsChecked == true) return "OnDemand";
-        if (RbSmart.IsChecked == true) return "Smart";
-        return "AlwaysOn";
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)

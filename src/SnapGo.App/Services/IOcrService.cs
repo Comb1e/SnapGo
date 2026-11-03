@@ -5,6 +5,6 @@ namespace SnapGo.App.Services;
 
 public interface IOcrService
 {
-    /// <summary>Send a screenshot to PaddleOCR-VL and return recognized text.</summary>
+    /// <summary>Recognize text in a screenshot with the in-process OCR engine.</summary>
     Task<OcrResult> RecognizeAsync(BitmapSource image, CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,3 @@
-using System.Net.Http;
 using System.Threading;
 using System.Windows;
 using Microsoft.Extensions.Configuration;
@@ -39,17 +38,9 @@ public partial class App : Application
                 // Configuration
                 services.Configure<AppSettings>(context.Configuration.GetSection("App"));
 
-                // HttpClient
-                services.AddSingleton<HttpClient>(_ => new HttpClient
-                {
-                    Timeout = TimeSpan.FromSeconds(
-                        context.Configuration.GetValue<int>("App:Ocr:TimeoutSeconds", 30))
-                });
-
                 // Core services (singleton — application lifetime)
                 services.AddSingleton<IScreenshotService, ScreenshotService>();
                 services.AddSingleton<IOcrService, OcrService>();
-                services.AddSingleton<IDockerService, DockerService>();
                 services.AddSingleton<IClipboardService, ClipboardService>();
                 services.AddSingleton<IHistoryService, HistoryService>();
                 services.AddSingleton<IAnnotationService, AnnotationService>();

@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Windows.Media.Imaging;
 using SnapGo.App.Helpers;
 
@@ -10,43 +11,26 @@ public class ScreenshotService : IScreenshotService
 
     public Task<BitmapSource> CaptureForegroundWindowAsync()
     {
-        var hWnd = NativeMethods.GetForegroundWindow();
-        NativeMethods.GetWindowRect(hWnd, out var rect);
-
-        // Fallback: if window rect is empty, capture entire screen
-        if (rect.Width <= 0 || rect.Height <= 0)
+        return Task.FromResult(NativeMethods.WithPerMonitorDpi(() =>
         {
-            return Task.FromResult(CaptureScreen());
-        }
+            var hWnd = NativeMethods.GetForegroundWindow();
+            NativeMethods.GetWindowRect(hWnd, out var rect);
 
-        var bitmap = new Bitmap(rect.Width, rect.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
-        using var graphics = Graphics.FromImage(bitmap);
-        graphics.CopyFromScreen(rect.Left, rect.Top, 0, 0, new System.Drawing.Size(rect.Width, rect.Height));
+            if (rect.Width <= 0 || rect.Height <= 0)
+                return CaptureVirtualScreen();
 
-        var result = ImageHelper.ToBitmapSource(bitmap);
-        bitmap.Dispose();
-        return Task.FromResult(result);
+            return CaptureRect(new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height));
+        }));
     }
 
     public BitmapSource CropRegion(BitmapSource source, int x, int y, int width, int height)
     {
-        var cropped = new CroppedBitmap(source, new System.Windows.Int32Rect(x, y, width, height));
-        // Force render to a clean bitmap (CroppedBitmap retains reference to source)
-        var copy = new RenderTargetBitmap(width, height, source.DpiX, source.DpiY,
-            System.Windows.Media.PixelFormats.Pbgra32);
-        var visual = new System.Windows.Media.DrawingVisual();
-        using (var dc = visual.RenderOpen())
-        {
-            dc.DrawImage(cropped, new System.Windows.Rect(0, 0, width, height));
-        }
-        copy.Render(visual);
-        copy.Freeze();
-        return copy;
+        return source.CropPixels(x, y, width, height);
     }
 
     public Task<BitmapSource> CaptureFullScreenAsync()
     {
-        return Task.FromResult(CaptureScreen());
+        return Task.FromResult(NativeMethods.WithPerMonitorDpi(CaptureVirtualScreen));
     }
 
     /// <summary>Trigger the ScreenshotCaptured event (called by overlay on confirmation).</summary>
@@ -62,18 +46,31 @@ public class ScreenshotService : IScreenshotService
         });
     }
 
-    private static BitmapSource CaptureScreen()
+    /// <summary>
+    /// Capture the virtual desktop in physical pixels. Caller must already be in a per-monitor DPI context,
+    /// otherwise GetSystemMetrics returns DIP-sized values and the bitmap is a scaled-down screen.
+    /// </summary>
+    private static BitmapSource CaptureVirtualScreen()
     {
-        var screenRect = new System.Drawing.Rectangle(
-            0, 0,
-            (int)System.Windows.SystemParameters.PrimaryScreenWidth,
-            (int)System.Windows.SystemParameters.PrimaryScreenHeight);
+        var bounds = new Rectangle(
+            NativeMethods.GetSystemMetrics(NativeMethods.SM_XVIRTUALSCREEN),
+            NativeMethods.GetSystemMetrics(NativeMethods.SM_YVIRTUALSCREEN),
+            NativeMethods.GetSystemMetrics(NativeMethods.SM_CXVIRTUALSCREEN),
+            NativeMethods.GetSystemMetrics(NativeMethods.SM_CYVIRTUALSCREEN));
+        return CaptureRect(bounds);
+    }
 
-        using var bitmap = new Bitmap(screenRect.Width, screenRect.Height,
-            System.Drawing.Imaging.PixelFormat.Format32bppRgb);
-        using var graphics = Graphics.FromImage(bitmap);
-        graphics.CopyFromScreen(0, 0, 0, 0, bitmap.Size);
+    private static BitmapSource CaptureRect(Rectangle bounds)
+    {
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+            throw new InvalidOperationException("Capture bounds are empty.");
 
-        return ImageHelper.ToBitmapSource(bitmap);
+        using var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppRgb);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.CopyFromScreen(bounds.Left, bounds.Top, 0, 0, bitmap.Size, CopyPixelOperation.SourceCopy);
+        }
+
+        return bitmap.ToBitmapSource();
     }
 }
