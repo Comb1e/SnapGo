@@ -30,7 +30,7 @@ cd SnapGo
 dotnet build src/SnapGo.App -c Release
 ```
 
-输出目录：`src/SnapGo.App/bin/Release/net8.0-windows/`
+输出目录：`src/SnapGo.App/bin/Release/net8.0-windows/win-x64/`
 
 ### 2. 启动 SnapGo
 

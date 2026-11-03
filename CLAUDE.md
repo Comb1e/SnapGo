@@ -21,7 +21,7 @@ dotnet run --project tools/ConvertIcon -- "src/SnapGo.App/icon/SnapGo.png" "src/
 powershell -Command "Stop-Process -Name SnapGo -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1"
 ```
 
-**Output:** `src/SnapGo.App/bin/Debug/net8.0-windows/SnapGo.exe` (assembly name is `SnapGo`, not `SnapGo.App`).
+**Output:** `src/SnapGo.App/bin/Debug/net8.0-windows/win-x64/SnapGo.exe` (assembly name is `SnapGo`, not `SnapGo.App`). The RID folder is the current build. An older `SnapGo.exe` one directory up is stale.
 
 **.NET SDK:** 8.0 (targets `net8.0-windows`). Install via `winget install Microsoft.DotNet.SDK.8` if missing.
 
@@ -82,7 +82,7 @@ The main window starts with `ShowInTaskbar=False` and `WindowState=Minimized` wh
 
 `OcrService` runs PP-OCRv5 mobile in-process through RapidOcrNet. Models live in `src/SnapGo.App/ocr-models/` and are copied to `models/` beside the exe. The first OCR call loads the session; later calls reuse it. `Provider=Auto` tries DirectML and falls back to CPU. Screenshot text is upright, so angle classification is not run. Lines are ordered by `OcrReadingOrder` (overlap must be at least half the taller box).
 
-The official DirectML package stops at ONNX Runtime 1.24.4, and newer RapidOcrNet releases require 1.27+. SnapGo pins RapidOcrNet 2.0.0 with `Microsoft.ML.OnnxRuntime.DirectML` 1.24.3 so the GPU provider actually ships. The CPU `Microsoft.ML.OnnxRuntime` package is referenced with `ExcludeAssets=runtime` so its `onnxruntime.dll` does not replace the DirectML build.
+The official DirectML package stops at ONNX Runtime 1.24.4, and newer RapidOcrNet releases require 1.27+. SnapGo pins RapidOcrNet 2.0.0 with `Microsoft.ML.OnnxRuntime.DirectML` 1.24.3 so the GPU provider actually ships. The CPU `Microsoft.ML.OnnxRuntime` package is referenced with `ExcludeAssets=runtime;native;build;buildTransitive`. `runtime` alone leaves the native asset group, and publish then fails with two `onnxruntime.dll` files. The managed API still comes from `Microsoft.ML.OnnxRuntime.Managed`.
 
 ### Configuration
 
